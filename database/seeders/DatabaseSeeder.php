@@ -16,13 +16,15 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // 1. Akun Rumah Sakit / Bidan (Admin / Peneliti)
-        User::create([
-            'name' => 'Bidan Ratna Wijaya, S.Keb',
-            'email' => 'bidan@siagabunda.id',
-            'role' => 'hospital_staff',
-            'phone' => '081122334455',
-            'password' => Hash::make('password'),
-        ]);
+        User::firstOrCreate(
+            ['email' => 'bidan@siagabunda.id'],
+            [
+                'name' => 'Bidan Ratna Wijaya, S.Keb',
+                'role' => 'hospital_staff',
+                'phone' => '081122334455',
+                'password' => Hash::make('password'),
+            ]
+        );
 
         // 2. Akun Responden / Ibu Hamil
         $patients = [
@@ -65,57 +67,73 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($patients as $p) {
-            $user = User::create([
-                'name' => $p['name'],
-                'email' => $p['email'],
-                'role' => 'patient',
-                'phone' => $p['phone'],
-                'password' => Hash::make('password'),
-            ]);
+            $user = User::firstOrCreate(
+                ['email' => $p['email']],
+                [
+                    'name' => $p['name'],
+                    'role' => 'patient',
+                    'phone' => $p['phone'],
+                    'password' => Hash::make('password'),
+                ]
+            );
 
             $dueDate = (clone $p['hpht'])->addDays(280);
 
-            PregnancyProfile::create([
-                'user_id' => $user->id,
-                'hpht' => $p['hpht']->toDateString(),
-                'due_date' => $dueDate->toDateString(),
-                'blood_type' => $p['blood_type'],
-                'referral_hospital' => $p['referral_hospital'],
-                'gravida_para' => $p['gravida_para'],
-                'risk_level' => $p['risk_level'],
-                'notes' => $p['notes'],
-            ]);
+            PregnancyProfile::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'hpht' => $p['hpht']->toDateString(),
+                    'due_date' => $dueDate->toDateString(),
+                    'blood_type' => $p['blood_type'],
+                    'referral_hospital' => $p['referral_hospital'],
+                    'gravida_para' => $p['gravida_para'],
+                    'risk_level' => $p['risk_level'],
+                    'notes' => $p['notes'],
+                ]
+            );
 
             foreach (User::defaultChecklistItems() as $idx => $item) {
-                Checklist::create([
-                    'user_id' => $user->id,
-                    'category' => $item['category'],
-                    'title' => $item['title'],
-                    'description' => $item['description'],
-                    'details' => $idx < $p['completed_count'] ? 'Sudah disiapkan dan dicatat oleh keluarga.' : null,
-                    'is_completed' => $idx < $p['completed_count'],
-                ]);
+                Checklist::firstOrCreate(
+                    [
+                        'user_id' => $user->id,
+                        'title' => $item['title'],
+                    ],
+                    [
+                        'category' => $item['category'],
+                        'description' => $item['description'],
+                        'details' => $idx < $p['completed_count'] ? 'Sudah disiapkan dan dicatat oleh keluarga.' : null,
+                        'is_completed' => $idx < $p['completed_count'],
+                    ]
+                );
             }
 
-            Schedule::create([
-                'user_id' => $user->id,
-                'title' => 'Kontrol Antenatal Care (ANC) Rutin',
-                'description' => 'Pemeriksaan tekanan darah, DJJ janin, dan evaluasi kesiapan P4K bersama Bidan/Dokter.',
-                'event_date' => Carbon::now()->addDays(3)->setTime(9, 0),
-                'location' => $p['referral_hospital'].' - Poli KIA',
-                'type' => 'anc',
-                'status' => 'upcoming',
-            ]);
+            Schedule::firstOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'title' => 'Kontrol Antenatal Care (ANC) Rutin',
+                ],
+                [
+                    'description' => 'Pemeriksaan tekanan darah, DJJ janin, dan evaluasi kesiapan P4K bersama Bidan/Dokter.',
+                    'event_date' => Carbon::now()->addDays(3)->setTime(9, 0),
+                    'location' => $p['referral_hospital'].' - Poli KIA',
+                    'type' => 'anc',
+                    'status' => 'upcoming',
+                ]
+            );
 
-            Schedule::create([
-                'user_id' => $user->id,
-                'title' => 'Finalisasi Tas Bersalin & Dokumen BPJS',
-                'description' => 'Pastikan KTP, KK, Buku KIA, dan pakaian bayi sudah masuk dalam satu tas siaga.',
-                'event_date' => Carbon::now()->addDays(7)->setTime(10, 0),
-                'location' => 'Rumah',
-                'type' => 'persiapan',
-                'status' => 'upcoming',
-            ]);
+            Schedule::firstOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'title' => 'Finalisasi Tas Bersalin & Dokumen BPJS',
+                ],
+                [
+                    'description' => 'Pastikan KTP, KK, Buku KIA, dan pakaian bayi sudah masuk dalam satu tas siaga.',
+                    'event_date' => Carbon::now()->addDays(7)->setTime(10, 0),
+                    'location' => 'Rumah',
+                    'type' => 'persiapan',
+                    'status' => 'upcoming',
+                ]
+            );
         }
 
         // 3. Konten Edukasi & Video Edukasi (Sesuai Struktur P4K Digital)
@@ -189,7 +207,10 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($educations as $edu) {
-            EducationContent::create($edu);
+            EducationContent::updateOrCreate(
+                ['slug' => $edu['slug']],
+                $edu
+            );
         }
     }
 }
